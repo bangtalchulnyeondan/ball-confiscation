@@ -84,6 +84,15 @@ def delete_record(page_id):
 
 
 def render_table(rows, show_return_btn=False):
+    h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 2, 1, 2, 2, 2, 2])
+    h1.markdown("**이름**")
+    h2.markdown("**학번**")
+    h3.markdown("**횟수**")
+    h4.markdown("**압수일**")
+    h5.markdown("**반환예정일**")
+    h6.markdown("**상태**")
+    h7.markdown("**삭제**")
+    st.divider()
     for row in rows:
         col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 2, 1, 2, 2, 2, 2])
         col1.write(row["학생 이름"])
@@ -138,7 +147,6 @@ with tab2:
     if not rows:
         st.info("미반환 항목이 없습니다.")
     else:
-        st.markdown("**이름 · 학번 · 횟수 · 압수일 · 반환예정일 · 반환완료 · 삭제**")
         render_table(rows, show_return_btn=True)
 
 with tab3:
@@ -149,5 +157,4 @@ with tab3:
     if not rows:
         st.info("반환 완료 항목이 없습니다.")
     else:
-        st.markdown("**이름 · 학번 · 횟수 · 압수일 · 반환예정일 · 상태 · 삭제**")
         render_table(rows, show_return_btn=False)
