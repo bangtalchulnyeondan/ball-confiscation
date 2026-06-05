@@ -42,12 +42,12 @@ def register(student_name, student_id, confiscation_date):
     return r.status_code == 200, count, days, return_date
 
 
-def get_active_list():
+def get_list(returned: bool):
     r = requests.post(
         f"https://api.notion.com/v1/databases/{DB_ID}/query",
         headers=HEADERS,
         json={
-            "filter": {"property": "반환 완료", "checkbox": {"equals": False}},
+            "filter": {"property": "반환 완료", "checkbox": {"equals": returned}},
             "sorts": [{"property": "반환 예정일", "direction": "ascending"}]
         }
     )
@@ -74,10 +74,40 @@ def mark_returned(page_id):
     return r.status_code == 200
 
 
+def delete_record(page_id):
+    r = requests.patch(
+        f"https://api.notion.com/v1/pages/{page_id}",
+        headers=HEADERS,
+        json={"archived": True}
+    )
+    return r.status_code == 200
+
+
+def render_table(rows, show_return_btn=False):
+    for row in rows:
+        col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 2, 1, 2, 2, 2, 2])
+        col1.write(row["학생 이름"])
+        col2.write(row["학번"])
+        col3.write(f"{row['압수 횟수']}회")
+        col4.write(row["압수 날짜"])
+        col5.write(row["반환 예정일"])
+        if show_return_btn:
+            if col6.button("반환 완료", key=f"ret_{row['page_id']}"):
+                if mark_returned(row["page_id"]):
+                    st.success(f"{row['학생 이름']} 반환 완료 처리됨")
+                    st.rerun()
+        else:
+            col6.write("완료")
+        if col7.button("삭제", key=f"del_{row['page_id']}"):
+            if delete_record(row["page_id"]):
+                st.success(f"{row['학생 이름']} 기록 삭제됨")
+                st.rerun()
+
+
 # ── UI ────────────────────────────────────────────
 
 st.title("공 압수 기록")
-tab1, tab2 = st.tabs(["압수 등록", "미반환 목록"])
+tab1, tab2, tab3 = st.tabs(["압수 등록", "미반환 목록", "반환 완료 목록"])
 
 with tab1:
     st.subheader("압수 등록")
@@ -102,21 +132,22 @@ with tab1:
 
 with tab2:
     st.subheader("미반환 목록")
-    if st.button("새로고침"):
+    if st.button("새로고침", key="refresh_active"):
         st.rerun()
-
-    rows = get_active_list()
+    rows = get_list(returned=False)
     if not rows:
         st.info("미반환 항목이 없습니다.")
     else:
-        for row in rows:
-            col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 1, 2, 2, 2])
-            col1.write(row["학생 이름"])
-            col2.write(row["학번"])
-            col3.write(f"{row['압수 횟수']}회")
-            col4.write(row["압수 날짜"])
-            col5.write(row["반환 예정일"])
-            if col6.button("반환 완료", key=row["page_id"]):
-                if mark_returned(row["page_id"]):
-                    st.success(f"{row['학생 이름']} 반환 완료 처리됨")
-                    st.rerun()
+        st.markdown("**이름 · 학번 · 횟수 · 압수일 · 반환예정일 · 반환완료 · 삭제**")
+        render_table(rows, show_return_btn=True)
+
+with tab3:
+    st.subheader("반환 완료 목록")
+    if st.button("새로고침", key="refresh_returned"):
+        st.rerun()
+    rows = get_list(returned=True)
+    if not rows:
+        st.info("반환 완료 항목이 없습니다.")
+    else:
+        st.markdown("**이름 · 학번 · 횟수 · 압수일 · 반환예정일 · 상태 · 삭제**")
+        render_table(rows, show_return_btn=False)
