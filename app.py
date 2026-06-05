@@ -12,6 +12,9 @@ HEADERS = {
 
 CONFISCATION_DAYS = {1: 14, 2: 30, 3: 60}
 
+if "confirm_delete" not in st.session_state:
+    st.session_state.confirm_delete = None
+
 
 def get_confiscation_count(student_id):
     r = requests.post(
@@ -65,11 +68,11 @@ def get_list(returned: bool):
     return rows
 
 
-def mark_returned(page_id):
+def mark_returned(page_id, returned: bool):
     r = requests.patch(
         f"https://api.notion.com/v1/pages/{page_id}",
         headers=HEADERS,
-        json={"properties": {"반환 완료": {"checkbox": True}}}
+        json={"properties": {"반환 완료": {"checkbox": returned}}}
     )
     return r.status_code == 200
 
@@ -83,33 +86,58 @@ def delete_record(page_id):
     return r.status_code == 200
 
 
-def render_table(rows, show_return_btn=False):
-    h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 2, 1, 2, 2, 2, 2])
+def render_table(rows, show_return_btn=False, show_undo_btn=False):
+    h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([2, 2, 1, 2, 2, 2, 2, 2])
     h1.markdown("**이름**")
     h2.markdown("**학번**")
     h3.markdown("**횟수**")
     h4.markdown("**압수일**")
     h5.markdown("**반환예정일**")
     h6.markdown("**상태**")
-    h7.markdown("**삭제**")
+    h7.markdown("**되돌리기**")
+    h8.markdown("**삭제**")
     st.divider()
+
     for row in rows:
-        col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 2, 1, 2, 2, 2, 2])
+        pid = row["page_id"]
+        col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([2, 2, 1, 2, 2, 2, 2, 2])
         col1.write(row["학생 이름"])
         col2.write(row["학번"])
         col3.write(f"{row['압수 횟수']}회")
         col4.write(row["압수 날짜"])
         col5.write(row["반환 예정일"])
+
         if show_return_btn:
-            if col6.button("반환 완료", key=f"ret_{row['page_id']}"):
-                if mark_returned(row["page_id"]):
+            if col6.button("반환 완료", key=f"ret_{pid}"):
+                if mark_returned(pid, True):
                     st.success(f"{row['학생 이름']} 반환 완료 처리됨")
                     st.rerun()
         else:
             col6.write("완료")
-        if col7.button("삭제", key=f"del_{row['page_id']}"):
-            if delete_record(row["page_id"]):
-                st.success(f"{row['학생 이름']} 기록 삭제됨")
+
+        if show_undo_btn:
+            if col7.button("미반환으로", key=f"undo_{pid}"):
+                if mark_returned(pid, False):
+                    st.success(f"{row['학생 이름']} 미반환으로 변경됨")
+                    st.rerun()
+        else:
+            col7.write("")
+
+        # 삭제: 1단계 버튼 → 확인 메시지 표시
+        if st.session_state.confirm_delete == pid:
+            col8.warning("삭제하면 이 기록은 완전히 사라집니다.")
+            c1, c2 = st.columns(2)
+            if c1.button("확인 삭제", key=f"confirm_{pid}"):
+                if delete_record(pid):
+                    st.session_state.confirm_delete = None
+                    st.success(f"{row['학생 이름']} 기록이 삭제됐습니다.")
+                    st.rerun()
+            if c2.button("취소", key=f"cancel_{pid}"):
+                st.session_state.confirm_delete = None
+                st.rerun()
+        else:
+            if col8.button("삭제", key=f"del_{pid}"):
+                st.session_state.confirm_delete = pid
                 st.rerun()
 
 
@@ -147,7 +175,7 @@ with tab2:
     if not rows:
         st.info("미반환 항목이 없습니다.")
     else:
-        render_table(rows, show_return_btn=True)
+        render_table(rows, show_return_btn=True, show_undo_btn=False)
 
 with tab3:
     st.subheader("반환 완료 목록")
@@ -157,4 +185,4 @@ with tab3:
     if not rows:
         st.info("반환 완료 항목이 없습니다.")
     else:
-        render_table(rows, show_return_btn=False)
+        render_table(rows, show_return_btn=False, show_undo_btn=True)
