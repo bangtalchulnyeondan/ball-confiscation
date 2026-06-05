@@ -87,20 +87,26 @@ def delete_record(page_id):
 
 
 def render_table(rows, show_return_btn=False, show_undo_btn=False):
-    h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([2, 2, 1, 2, 2, 2, 2, 2])
+    if show_undo_btn:
+        h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([2, 2, 1, 2, 2, 2, 2, 2])
+        h7.markdown("**되돌리기**")
+    else:
+        h1, h2, h3, h4, h5, h6, h8 = st.columns([2, 2, 1, 2, 2, 2, 2])
     h1.markdown("**이름**")
     h2.markdown("**학번**")
     h3.markdown("**횟수**")
     h4.markdown("**압수일**")
     h5.markdown("**반환예정일**")
     h6.markdown("**상태**")
-    h7.markdown("**되돌리기**")
     h8.markdown("**삭제**")
     st.divider()
 
     for row in rows:
         pid = row["page_id"]
-        col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([2, 2, 1, 2, 2, 2, 2, 2])
+        if show_undo_btn:
+            col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([2, 2, 1, 2, 2, 2, 2, 2])
+        else:
+            col1, col2, col3, col4, col5, col6, col8 = st.columns([2, 2, 1, 2, 2, 2, 2])
         col1.write(row["학생 이름"])
         col2.write(row["학번"])
         col3.write(f"{row['압수 횟수']}회")
@@ -120,8 +126,6 @@ def render_table(rows, show_return_btn=False, show_undo_btn=False):
                 if mark_returned(pid, False):
                     st.success(f"{row['학생 이름']} 미반환으로 변경됨")
                     st.rerun()
-        else:
-            col7.write("")
 
         # 삭제: 1단계 버튼 → 확인 메시지 표시
         if st.session_state.confirm_delete == pid:
